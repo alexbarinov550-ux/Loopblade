@@ -35,21 +35,27 @@ app.post('/upload.php', (req, res) => {
     res.json({ status: 'ok', file: `backups/${path.basename(filename)}`, size: code.length });
 });
 
-// ---------- Список сохранений ----------
-app.post('/list.php', (req, res) => {
-    const { secret } = req.body;
-    if (secret !== 'LOOPBLADE_BACKUP') {
-        return res.status(403).json({ error: 'Forbidden' });
-    }
+// ---------- Список сохранений (открывается в браузере) ----------
+app.get('/list', (req, res) => {
     const dir = path.join(__dirname, 'backups');
     if (!fs.existsSync(dir)) {
-        return res.json({ files: [] });
+        return res.send('Папка backups не найдена.');
     }
     const files = fs.readdirSync(dir)
         .filter(f => f.endsWith('.html'))
         .sort()
-        .map(f => `backups/${f}`);
-    res.json({ files });
+        .reverse(); // сначала новые
+
+    if (files.length === 0) {
+        return res.send('Сохранений пока нет.');
+    }
+
+    let html = '<h1>Сохранения Loopblade</h1><ul>';
+    files.forEach(f => {
+        html += `<li><a href="/backups/${f}">${f}</a></li>`;
+    });
+    html += '</ul>';
+    res.send(html);
 });
 
 // ---------- Запуск ----------
