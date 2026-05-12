@@ -14,10 +14,11 @@ app.use((req, res, next) => {
     next();
 });
 
-// ---------- Раздача сохранённых файлов ----------
+// ---------- Раздача папок ----------
 app.use('/backups', express.static(path.join(__dirname, 'backups')));
+app.use('/states', express.static(path.join(__dirname, 'states')));
 
-// ---------- Сохранение ----------
+// ---------- Сохранение полного HTML ----------
 app.post('/upload.php', (req, res) => {
     const { secret, code, timestamp } = req.body;
     if (secret !== 'LOOPBLADE_BACKUP') {
@@ -35,7 +36,25 @@ app.post('/upload.php', (req, res) => {
     res.json({ status: 'ok', file: `backups/${path.basename(filename)}`, size: code.length });
 });
 
-// ---------- Список сохранений (открывается в браузере) ----------
+// ---------- Сохранение состояния игрока (JSON) ----------
+app.post('/save_state.php', (req, res) => {
+    const { secret, state, timestamp } = req.body;
+    if (secret !== 'LOOPBLADE_BACKUP') {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+    if (!state) {
+        return res.status(400).json({ error: 'No state' });
+    }
+    const dir = path.join(__dirname, 'states');
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    const filename = path.join(dir, `state_${timestamp || Date.now()}.json`);
+    fs.writeFileSync(filename, JSON.stringify(state, null, 2));
+    res.json({ status: 'ok', file: `states/${path.basename(filename)}`, size: JSON.stringify(state).length });
+});
+
+// ---------- Список сохранений (HTML) ----------
 app.get('/list', (req, res) => {
     const dir = path.join(__dirname, 'backups');
     if (!fs.existsSync(dir)) {
@@ -44,15 +63,34 @@ app.get('/list', (req, res) => {
     const files = fs.readdirSync(dir)
         .filter(f => f.endsWith('.html'))
         .sort()
-        .reverse(); // сначала новые
-
+        .reverse();
     if (files.length === 0) {
         return res.send('Сохранений пока нет.');
     }
-
-    let html = '<h1>Сохранения Loopblade</h1><ul>';
+    let html = '<h1>Сохранения Loopblade (код)</h1><ul>';
     files.forEach(f => {
         html += `<li><a href="/backups/${f}">${f}</a></li>`;
+    });
+    html += '</ul>';
+    res.send(html);
+});
+
+// ---------- Список состояний ----------
+app.get('/states', (req, res) => {
+    const dir = path.join(__dirname, 'states');
+    if (!fs.existsSync(dir)) {
+        return res.send('Папка states не найдена.');
+    }
+    const files = fs.readdirSync(dir)
+        .filter(f => f.endsWith('.json'))
+        .sort()
+        .reverse();
+    if (files.length === 0) {
+        return res.send('Состояний пока нет.');
+    }
+    let html = '<h1>Состояния игры</h1><ul>';
+    files.forEach(f => {
+        html += `<li><a href="/states/${f}">${f}</a></li>`;
     });
     html += '</ul>';
     res.send(html);
