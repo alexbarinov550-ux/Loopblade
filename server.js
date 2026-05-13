@@ -36,6 +36,20 @@ app.post('/upload.php', (req, res) => {
     res.json({ status: 'ok', file: `backups/${path.basename(filename)}`, size: code.length });
 });
 
+// ---------- Отдача последней сохранённой версии ----------
+app.get('/latest', (req, res) => {
+    const dir = path.join(__dirname, 'backups');
+    if (!fs.existsSync(dir)) {
+        return res.status(404).send('No backups yet');
+    }
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.html')).sort();
+    if (files.length === 0) {
+        return res.status(404).send('No backups yet');
+    }
+    const latestFile = files[files.length - 1];
+    res.sendFile(path.join(dir, latestFile));
+});
+
 // ---------- Сохранение состояния игрока (JSON) ----------
 app.post('/save_state.php', (req, res) => {
     const { secret, state, timestamp } = req.body;
